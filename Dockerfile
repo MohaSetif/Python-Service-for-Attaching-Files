@@ -1,4 +1,6 @@
 FROM python:3-alpine3.15
 WORKDIR /app
-COPY . .
-CMD ["python", "attach.py"]
+COPY . /app
+RUN pip install -r requirements.txt
+EXPOSE 3000
+CMD ["python3", "attach.py"]

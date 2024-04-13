@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html class="h-full bg-gray-100">
+<head>
+    <title>File Upload</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js"></script>
+</head>
+<body class="h-full">
+    <div class="flex flex-col items-center justify-center h-full">
+        <h1 class="text-3xl font-bold mb-6">Upload Files</h1>
+        <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 w-full max-w-md">
+            <div class="mb-4">
+                <label for="main_file" class="block text-gray-700 font-bold mb-2">Main PDF File:</label>
+                <input type="file" id="main_file" name="main_file" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-6">
+                <label for="attachments" class="block text-gray-700 font-bold mb-2">Add attachments:</label>
+                <input type="file" id="attachments" name="attachments" multiple required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <input type="hidden" id="main_file_checksum" name="main_file_checksum">
+            <input type="hidden" id="attachments_checksums" name="attachments_checksums">
+            <div class="flex justify-center">
+                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Upload</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            var mainFileInput = document.getElementById('main_file');
+            var attachments = document.getElementById('attachments');
+            var mainFile = mainFileInput.files[0];
+            var attachmentsList = [];
+            for (let i = 0; i < attachments.files.length; i++) {
+                attachmentsList.push(attachments.files[i]);
+            }
+            var reader = new FileReader();
+            var mainFileChecksum = null;
+            var attachmentsChecksums = [];
+            
+            reader.onload = function(e) {
+                if (!mainFileChecksum) {
+                    mainFileChecksum = sha256(new Uint8Array(e.target.result));
+                    document.getElementById('main_file_checksum').value = mainFileChecksum;
+                } else {
+                    attachmentsChecksums.push(sha256(new Uint8Array(e.target.result)));
+                }
+                if (attachmentsChecksums.length === attachmentsList.length) {
+                    document.getElementById('attachments_checksums').value = attachmentsChecksums.join(',');
+                    event.target.submit();
+                } else {
+                    reader.readAsArrayBuffer(attachmentsList[attachmentsChecksums.length]);
+                }
+            };
+            
+            reader.readAsArrayBuffer(mainFile);
+        });
+    </script>
+</body>
+</html>
