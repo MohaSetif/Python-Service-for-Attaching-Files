@@ -1,6 +1,8 @@
 FROM python:3-alpine3.15
+RUN pip install watchdog
 WORKDIR /app
-COPY . /app
+COPY requirements.txt /app
 RUN pip install -r requirements.txt
+COPY . /app
 EXPOSE 3000
-CMD ["python3", "attach.py"]
+CMD ["watchmedo", "auto-restart", "--directory", ".", "--pattern", "*.py", "--recursive", "--", "python", "attach.py"]
