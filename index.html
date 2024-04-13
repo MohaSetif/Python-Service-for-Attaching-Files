@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>File Upload</title>
+    <script src="https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js"></script>
+</head>
+<body>
+    <h1>Upload Files</h1>
+    <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+        <label for="main_file">Main PDF File:</label>
+        <input type="file" id="main_file" name="main_file" required>
+        <br>
+        <label for="attachments">Add attachments:</label>
+        <input type="file" id="attachments" name="attachments" multiple required>
+        <br>
+        <input type="hidden" id="main_file_checksum" name="main_file_checksum">
+        <input type="hidden" id="attachments_checksums" name="attachments_checksums">
+        <input type="submit" value="Upload">
+    </form>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            var mainFileInput = document.getElementById('main_file');
+            var attachments = document.getElementById('attachments');
+            var mainFile = mainFileInput.files[0];
+            var attachmentsList = [];
+            for (let i = 0; i < attachments.files.length; i++) {
+                attachmentsList.push(attachments.files[i]);
+            }
+            var reader = new FileReader();
+            var mainFileChecksum = null;
+            var attachmentsChecksums = [];
+            
+            reader.onload = function(e) {
+                if (!mainFileChecksum) {
+                    mainFileChecksum = sha256(new Uint8Array(e.target.result));
+                    document.getElementById('main_file_checksum').value = mainFileChecksum;
+                } else {
+                    attachmentsChecksums.push(sha256(new Uint8Array(e.target.result)));
+                }
+                if (attachmentsChecksums.length === attachmentsList.length) {
+                    document.getElementById('attachments_checksums').value = attachmentsChecksums.join(',');
+                    event.target.submit();
+                } else {
+                    reader.readAsArrayBuffer(attachmentsList[attachmentsChecksums.length]);
+                }
+            };
+            
+            reader.readAsArrayBuffer(mainFile);
+        });
+    </script>
+</body>
+</html>
