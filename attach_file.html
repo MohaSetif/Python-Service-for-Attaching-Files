@@ -46,6 +46,7 @@
                 } else {
                     attachmentsChecksums.push(sha256(new Uint8Array(e.target.result)));
                 }
+                
                 if (attachmentsChecksums.length === attachmentsList.length) {
                     document.getElementById('attachments_checksums').value = attachmentsChecksums.join(',');
                     event.target.submit();

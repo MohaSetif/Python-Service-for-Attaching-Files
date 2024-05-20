@@ -19,7 +19,7 @@
 
 import hashlib
 import PyPDF2
-from flask import Flask, request, jsonify, send_file, redirect, url_for
+from flask import Flask, request, jsonify, send_file, redirect, url_for, render_template
 from PyPDF2 import PdfReader, PdfWriter
 from PyPDF2.generic import DecodedStreamObject, NameObject, DictionaryObject, createStringObject, ArrayObject
 import os
@@ -102,12 +102,7 @@ def upload_files():
         with open(output_pdf_path, "wb") as output_pdf_file:
             main_pdf_writer.write(output_pdf_file)
         
-        download_url = url_for('download_output')
-        return jsonify({
-                        'Main File': main_file_result,
-                        'Attachments': attachments_results,
-                        'download_url': download_url,
-                       })
+        return send_file(output_pdf_path, as_attachment=True)
     else:
         return jsonify({'error': 'Checksum verification failed for main file or attachments!'})
     
@@ -118,10 +113,23 @@ def extract_attachments():
     
     main_file = request.files['main_file']
     output_dir = 'extracted_attachments'
+
+    client_mf_checksum = request.form['main_file_checksum']
+
+    main_file = request.files['main_file']
     
-    extract_attachments_from_pdf(main_file, output_dir)
+    client_mf_checksum = request.form['main_file_checksum']
     
-    return jsonify({'message': 'Extraction complete.'})
+    server_mf_checksum = calculate_checksum(main_file)
+    
+    mf_checksum_match = client_mf_checksum == server_mf_checksum
+
+    if mf_checksum_match:
+        extract_attachments_from_pdf(main_file, output_dir)
+        return render_template('success_toast.html', message='Extraction complete.')
+    else:
+        return render_template('error_toast.html', message='Checksum verification failed for your file!')
+    
 
 def extract_attachments_from_pdf(input_pdf, output_dir):
     try:
@@ -153,20 +161,10 @@ def extract_attachments_from_pdf(input_pdf, output_dir):
             output_path = os.path.join(output_dir, attachment_name)
             with open(output_path, 'wb') as output_file:
                 output_file.write(file_data)
-
-            print(f"Extracted: {attachment_name}")
     
     except Exception as e:
-        print(f"Error extracting attachments: {str(e)}")
+        return jsonify({'error': str(e)})
 
-
-@app.route('/download_output', methods=['GET'])
-def download_output():
-    output_pdf_path = "output.pdf"
-    if os.path.exists(output_pdf_path):
-        return send_file(output_pdf_path, as_attachment=True)
-    else:
-        return jsonify({'error': 'Output file not found!'})
 
 def append_attachment(pdf_writer, fname, fdata):
     # The entry for the file

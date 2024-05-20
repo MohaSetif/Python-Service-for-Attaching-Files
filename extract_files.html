@@ -3,19 +3,35 @@
 <head>
 <title>Attachment Extraction</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js"></script>
 </head>
-    <body class="h-full">
-        <div class="flex flex-col items-center justify-center h-full">
+<body class="h-full">
+    <div class="flex flex-col items-center justify-center h-full">
         <h1 class="text-3xl font-bold mb-6">Upload Files</h1>
-            <form id="uploadForm" action="/extract" method="post" enctype="multipart/form-data" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 w-full max-w-md">
-                <div class="mb-4">
-                    <label for="main_file" class="block text-gray-700 font-bold mb-2">PDF File:</label>
-                    <input type="file" id="main_file" name="main_file" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                </div>
-                <div class="flex justify-center">
-                    <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Upload</button>
-                </div>
-            </form>
-        </div>
-    </body>
+        <form id="uploadForm" action="/extract" method="post" enctype="multipart/form-data" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 w-full max-w-md">
+            <div class="mb-4">
+                <label for="main_file" class="block text-gray-700 font-bold mb-2">PDF File:</label>
+                <input type="file" id="main_file" name="main_file" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <input type="hidden" id="main_file_checksum" name="main_file_checksum">
+            <div class="flex justify-center">
+                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Upload</button>
+            </div>
+        </form>
+    </div>
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            var mainFileInput = document.getElementById('main_file');
+            var mainFile = mainFileInput.files[0];
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var mainFileChecksum = sha256(new Uint8Array(e.target.result));
+                document.getElementById('main_file_checksum').value = mainFileChecksum;
+                document.getElementById("uploadForm").submit();
+            };
+            reader.readAsArrayBuffer(mainFile);
+        });
+    </script>
+</body>
 </html>
