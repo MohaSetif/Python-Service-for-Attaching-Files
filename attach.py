@@ -18,6 +18,7 @@
 
 
 import hashlib
+import PyPDF2
 from flask import Flask, request, jsonify, send_file, redirect, url_for
 from PyPDF2 import PdfReader, PdfWriter
 from PyPDF2.generic import DecodedStreamObject, NameObject, DictionaryObject, createStringObject, ArrayObject
@@ -32,6 +33,12 @@ def calculate_checksum(file):
         sha256_hash.update(byte_block)
     file.seek(0)  # Reset the file pointer to the start
     return sha256_hash.hexdigest()
+
+def resolve_indirect(obj):
+    """ Helper function to resolve indirect objects in PyPDF2. """
+    while isinstance(obj, PyPDF2.generic.IndirectObject):
+        obj = obj.get_object()
+    return obj
 
 @app.route('/', methods=['GET'])
 def index():
@@ -106,7 +113,52 @@ def upload_files():
     
 @app.route('/extract', methods=['POST'])
 def extract_attachments():
-    return
+    if 'main_file' not in request.files:
+        return jsonify({'error': 'No file part in the request'})
+    
+    main_file = request.files['main_file']
+    output_dir = 'extracted_attachments'
+    
+    extract_attachments_from_pdf(main_file, output_dir)
+    
+    return jsonify({'message': 'Extraction complete.'})
+
+def extract_attachments_from_pdf(input_pdf, output_dir):
+    try:
+        reader = PyPDF2.PdfReader(input_pdf)
+        
+        root = resolve_indirect(reader.trailer['/Root'])
+        if '/Names' not in root:
+            print('No attachments found in the PDF.')
+            return
+
+        names = resolve_indirect(root['/Names'])
+        if '/EmbeddedFiles' not in names:
+            print('No attachments found in the PDF.')
+            return
+        
+        embedded_files = resolve_indirect(names['/EmbeddedFiles'])
+        attachments = embedded_files['/Names']
+        
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        for i in range(0, len(attachments), 2):
+            attachment_name = attachments[i].get_object()
+            attachment_file = attachments[i+1].get_object()
+            
+            file_spec = resolve_indirect(attachment_file)
+            file_data = resolve_indirect(file_spec['/EF']['/F']).get_data()
+
+            output_path = os.path.join(output_dir, attachment_name)
+            with open(output_path, 'wb') as output_file:
+                output_file.write(file_data)
+
+            print(f"Extracted: {attachment_name}")
+    
+    except Exception as e:
+        print(f"Error extracting attachments: {str(e)}")
+
 
 @app.route('/download_output', methods=['GET'])
 def download_output():
