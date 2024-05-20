@@ -29,7 +29,7 @@ app = Flask(__name__)
 
 
 SWAGGER_URL = '/api/docs'  # URL for exposing Swagger UI (without trailing '/')
-API_URL = 'http://petstore.swagger.io/v2/swagger.json'  # Our API url (can of course be a local resource)
+API_URL = '/static/swagger.json'  # Our API url (can of course be a local resource)
 
 # Call factory function to create our blueprint
 swaggerui_blueprint = get_swaggerui_blueprint(
@@ -136,18 +136,15 @@ def upload_files():
 def extract_attachments():
     if 'main_file' not in request.files:
         return jsonify({'error': 'No file part in the request'})
-    
-    main_file = request.files['main_file']
+
+    main_file = request.files['main_file'].stream
+
     output_dir = 'extracted_attachments'
 
     client_mf_checksum = request.form['main_file_checksum']
 
-    main_file = request.files['main_file']
-    
-    client_mf_checksum = request.form['main_file_checksum']
-    
     server_mf_checksum = calculate_checksum(main_file)
-    
+
     mf_checksum_match = client_mf_checksum == server_mf_checksum
 
     if mf_checksum_match:
