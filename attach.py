@@ -18,12 +18,14 @@
 
 
 import hashlib
+import zipfile
 import PyPDF2
 from flask import Flask, request, jsonify, send_file, redirect, url_for, render_template
 from PyPDF2 import PdfReader, PdfWriter
 from PyPDF2.generic import DecodedStreamObject, NameObject, DictionaryObject, createStringObject, ArrayObject
 import os
 from flask_swagger_ui import get_swaggerui_blueprint
+import io
 
 app = Flask(__name__)
 
@@ -139,8 +141,6 @@ def extract_attachments():
 
     main_file = request.files['main_file'].stream
 
-    output_dir = 'extracted_attachments'
-
     client_mf_checksum = request.form['main_file_checksum']
 
     server_mf_checksum = calculate_checksum(main_file)
@@ -148,46 +148,47 @@ def extract_attachments():
     mf_checksum_match = client_mf_checksum == server_mf_checksum
 
     if mf_checksum_match:
-        extract_attachments_from_pdf(main_file, output_dir)
-        return render_template('success_toast.html', message='Extraction complete.')
+        zip_buffer = extract_attachments_from_pdf(main_file)
+        if zip_buffer:
+            return send_file(zip_buffer, as_attachment=True, download_name='attachments.zip')
+        else:
+            return render_template('error_toast.html', message='No attachments found in the PDF.')
     else:
         return render_template('error_toast.html', message='Checksum verification failed for your file!')
-    
 
-def extract_attachments_from_pdf(input_pdf, output_dir):
+def extract_attachments_from_pdf(input_pdf):
     try:
         reader = PyPDF2.PdfReader(input_pdf)
-        
         root = resolve_indirect(reader.trailer['/Root'])
         if '/Names' not in root:
             print('No attachments found in the PDF.')
-            return
+            return None
 
         names = resolve_indirect(root['/Names'])
         if '/EmbeddedFiles' not in names:
             print('No attachments found in the PDF.')
-            return
-        
+            return None
+
         embedded_files = resolve_indirect(names['/EmbeddedFiles'])
         attachments = embedded_files['/Names']
-        
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
 
-        for i in range(0, len(attachments), 2):
-            attachment_name = attachments[i].get_object()
-            attachment_file = attachments[i+1].get_object()
-            
-            file_spec = resolve_indirect(attachment_file)
-            file_data = resolve_indirect(file_spec['/EF']['/F']).get_data()
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for i in range(0, len(attachments), 2):
+                attachment_name = attachments[i].get_object()
+                attachment_file = attachments[i+1].get_object()
 
-            output_path = os.path.join(output_dir, attachment_name)
-            with open(output_path, 'wb') as output_file:
-                output_file.write(file_data)
-    
+                file_spec = resolve_indirect(attachment_file)
+                file_data = resolve_indirect(file_spec['/EF']['/F']).get_data()
+
+                zip_file.writestr(attachment_name, file_data)
+
+        zip_buffer.seek(0)
+        return zip_buffer
+
     except Exception as e:
         return jsonify({'error': str(e)})
-
+    
 
 def append_attachment(pdf_writer, fname, fdata):
     # The entry for the file

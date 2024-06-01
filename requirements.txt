@@ -1,3 +1,4 @@
 Flask==3.0.3
+flask_swagger_ui==4.11.1
 PyPDF2==3.0.1
 watchdog==4.0.0
